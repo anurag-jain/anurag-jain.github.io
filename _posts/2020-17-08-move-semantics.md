@@ -2,11 +2,11 @@
 title: Move semantics in 5 Minutes
 date: 2020-08-17
 layout: post
-comments: true
+comments: false
 toc: true
 image: assets/images/move.jpg
 categories: [C++11, MoveSemantics]
-#author: Anurag
+author: Anurag
 ---
 
 Move semantics were introduced in the C++11 and provide a way to efficiently move contents of objects from one to another, instead of copying object unconditionally. This prevents unnecessary object copies, thus results in better performance and promotes simpler and expressive design. 
@@ -431,8 +431,8 @@ I hope this post provided a basic understanding of move semantics and lvalue and
 * C++11 introduces move semantics and rvalue references to distinguish between lvalues and rvalues.
 * lvalues are named identifiers having an accessible address.
 * rvalues are temporary objects and their address can't be accessed.
-* Move constructor and move assignment operator definition guidelines.
-* How to pass parameters to and from functions.
+* Move constructor and move assignment operator canonical definition and guidelines for custom definition.
+* Conventions to pass parameters to and from functions.
 
 
 [1]: [https://eli.thegreenplace.net/2011/12/15/understanding-lvalues-and-rvalues-in-c-and-c/]
