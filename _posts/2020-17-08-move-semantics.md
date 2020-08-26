@@ -9,7 +9,7 @@ categories: [C++11, MoveSemantics]
 #author: Anurag
 ---
 
-Move semantics were introduced in the C++11 and provide a way to efficiently move contents of objects from one to another, instead of copying object unconditionally. This results in better performance and promotes simpler and expressive design. 
+Move semantics were introduced in the C++11 and provide a way to efficiently move contents of objects from one to another, instead of copying object unconditionally. This prevents unnecessary object copies, thus results in better performance and promotes simpler and expressive design. 
 
 ## Introduction
 
@@ -20,12 +20,12 @@ std::vector<int> v1 {1, 2, 3, 4, 5, 7};
 std::vector<int> v2 = v1;
 ```
 
-Here, `v1` is copy-constructed using `v2` and it does a deep copy with a possibility of extra memory allocation if `v2` can not fit `v1`. This is rightly expected, we want to have two independent copies of the vector without any problem of sharing.
+Here, `v1` is copy-constructed using `v2` and it does a deep copy with a possibility of extra memory allocation if `v2` can not fit `v1`. This is expected if we want to have two independent copies of the vector without any problem due to data sharing.
 
 
 ![Copy]({{ site.baseurl }}/assets/images/MoveSemantics1.png)
 
-Now, consider the following.
+Now, let's consider the following.
 ```cpp
 std::vector<int> GetVector()
 {
@@ -36,20 +36,20 @@ std::vector<int> GetVector()
 std::vector<int> v2 = {};
 v3 = GetVector(); 
 ```
-Here, `GetVector` creates and returns a temporary vector that gets assigned to `v2`, making a deep copy. 
-But, do we want to create a deep copy?
+Here, `GetVector` constructs and returns a temporary vector that gets similarly copied to `v2` as in the scenario above. 
+But, do we want to create a copy here?
 
 No!! It'd be wasteful; because the returned vector is temporary and will eventually get destroyed.
 
-Instead, we can transfer the contents simply by redirecting the pointers of `v2` to the memory locations pointed by the pointers of temp object, followed by resetting pointers in the temp object. 
+Instead, we can transfer the contents simply by redirecting the pointers of `v2` to the memory locations pointed by the pointers of temp object; followed by resetting pointers in the temp object. 
 This effectively transfers the ownership of content from the source object(`tmp`) to the destination object (`v2`).
 
 ![Move]({{ site.baseurl }}/assets/images/MoveSemantics2.png)
 
-That's exactly the facility move semantics provides. Move operations, in addition to being extremely fast compared to copy, have significantly changed the way we design our code.
+That's exactly the facility move semantics provides. Move operations, in addition to being extremely cheap compared to copy, have also changed the way we design our code.
 
 ### Lvalue and Rvalue 
-To understand move semantics and before we go into the details of it, we need to understand the difference between an lvalue and an rvalue. 
+Before we deep dive into the technical details of move semantics, we need to understand the difference between an lvalue and an rvalue. 
 
 Loosely put, an lvalue is 
 * Anything which has a name i.e. identifier.
@@ -65,7 +65,7 @@ and rvalue is
 //a is an lvalue as it has a name and well 
 // defined address.
 //666 is an rvalue as it doesn't have a name 
-// and accessible address..
+// and accessible address.
 int a = 666; 
 
 // lvalue address can be taken and put into another variable.
@@ -83,17 +83,15 @@ std::string s;
 //s is an lvalue
 s + s = s;
 ```
-**Note:** lvalue and rvalue definitions above are a good rule of thumb which work most of the time. But, there are much more intricate details to it in c++ standard and if you're interested, You can refer [Eli Bendersky's post][1] on it.
+**Note:** lvalue and rvalue explanation above is a good rule of thumb that works most of the time. But, there are a few nuances to it in c++ standard. [Eli Bendersky's post][1] provides a detailed introduction on this topic.
 
 
 
 ### Rvalue Reference `&&` and std::move
 
 Before C++11, since there was no way to differentiate between an lvalue and an rvalue, because of that it always defaulted to copy operations; either using copy constructor or copy assignment operator. Even temporaries were copied, which is bad.
-Example below.
 
 ```cpp
-
 template<typename T, typename A= ...>
 class vector
 {
@@ -127,11 +125,11 @@ v3 = GetVector();
 
 ```
 
-To prevent copying temporaries, C++11 introduced a new `&&` operator which is similar to reference(`&`) operator; but unlike `&` which binds to an lvalue, `&&` binds to rvalues. Therefore, by using rvalue reference(`&&`) we can distinguish between lvalues and rvalues and formulate different strategies for copy and move operations. 
+To prevent copying temporaries unconditionally, C++11 introduced a new `&&` operator which is similar to reference(`&`) operator; but unlike `&` which binds to an lvalue, `&&` binds to rvalues. Therefore, by using rvalue reference(`&&`) we can distinguish between lvalues and rvalues and formulate different strategies for copy and move operations. 
 
-How, you may ask.
+How? you may ask.
 
-Comes move constructor and move assignment operator functions. 
+Comes, move constructor, and move assignment operator functions. 
 
 ```cpp
 template<typename T, typename A= ...>
@@ -152,7 +150,7 @@ std::vector<int> v3 = {};
 v3 = GetVector(); 
 ```
 
-Now you may ask, how about moving an lvalue ?
+How about moving an lvalue ?
 
 ```cpp
 std::vector<int> v1 {1, 2, 3, 4, 5, 7};
@@ -163,7 +161,7 @@ std::vector<int> v3 = {};
 v3 = v2;
 ```
 
-Well, C++11 also introduced `std::move()` which takes an lvalue and returns an rvalue reference. So to move an lvalue `v1` I'd do
+Well, C++11 also introduced `std::move()` which takes an lvalue and returns an rvalue reference. So to move an lvalue `v1` We'd do
 
 ```cpp
 //calls the move assignment operator
@@ -171,9 +169,9 @@ v2 = std::move(v1);
 ```
 
 **Note:** 
-Since, move operation causes transfer of ownership, using a moved-from object afterward i.e. `v1` in the above case, can lead to trouble, because `v1` will not longer own the memory it was holding onto previously. Although, being an lvalue, it has a name and lives on, until its scope expires and it gets destroyed. It can be misused in clever ways if you know what you're doing.
+Since, move operation causes transfer of ownership, using a moved-from object afterward i.e. `v1` in the above case, can lead to trouble, because `v1` will no longer own the memory it was holding onto previously. Although, being an lvalue, it has a name and lives on, until its scope expires and it gets destroyed. It can be misused in clever ways if you know what you're doing.
 
-If we check the definition of std::move we realize that `std::move()` contrary to its name doesn't move anything; instead it unconditionally casts its input to an rvalue reference.
+If we check the definition of std::move we realize that `std::move()`, contrary to its name, doesn't move anything; instead it unconditionally casts its input to an rvalue reference.
 
 ```cpp
 template <typename T>
@@ -185,7 +183,7 @@ std::remove_reference_t<T>&& move(T&& t) noexcept
 
 ## Move constructor and Move assignment
 
-For move semantics to be functional, classes from C++11 onwards have two extra functions; move constructor and move assignment operator; making it six special functions in total.They are
+For move semantics to be functional, classes from C++11 onwards have two extra functions; move constructor and move assignment operator; making it six special functions in total. They are
 
 
 * Default constructor
@@ -217,9 +215,9 @@ public:
 
 Notice that in the class definition above we don't need to implement move functions. It's because all the data members types are automatically movable; `int` is fundamental type, `std::unique_ptr` and `std::string` have their move functions implemented and thus know how to transfer content efficiently.
 
-This may not be the case always. How about we use `int*` instead of `std::unique_ptr`? With that, let's see how we can implement the move functions for our classes.
+This may not be the case always. How about when we use `int*` instead of `std::unique_ptr`? With that, let's see how we can implement the move functions for our classes.
 
-### How to make a class movable ?
+### How to make a class movable?
 
 Consider a class that manually manages resources; e.g. memory, database connection or file, etc. 
 
@@ -234,7 +232,7 @@ private:
 }
 ```
 
-Here we can not rely on the default behavior of move functions and thus have to implement them ourselves for **move** to work correctly. Though, there are few guidelines to implement these functions correctly.
+Here we can not rely on the default behavior of move functions and thus have to implement them ourselves for **move** to work correctly. It's always a good idea to follow the guidelines to have a correct implementation.
 
 #### Move Constructor
 A well-implemented move constructor should
@@ -254,8 +252,8 @@ public:
       buffer(std::move(w.buffer)) 
   {
     //Step 2: Leaving the source object in a valid state.
-    //For an owning pointer this is absolute necessary.  
-    // Without this we'll have two places buffer memory can be 
+    //For an owning pointer, this is absolutely necessary.  
+    // Without this, we'll have two places buffer memory can be 
     // destroyed from. Trouble!
     w.buffer = nullptr;
 
@@ -308,7 +306,7 @@ public:
     buffer  = std::move(w.buffer); 
 
     //Step 3: leaving the source object in a valid state.
-    //Without this we'll have two places buffer memory can be destroyed from. Trouble.
+    //Without this, we'll have two places buffer memory can be destroyed from. Trouble.
     w.buffer = nullptr;
 
     //purely optional. CPP core guideline #64
@@ -341,7 +339,7 @@ Window& operator=  (Window&& w) noexcept
     return *this;
   }
 ```
-Although, this version is more expressive, the previous version is more deterministic in terms of when the memory held by `this` pointer gets released, due to the explicit delete on it. In this version, we exchange the ownership of memory between `w` and `this` and we're not sure when `w` gets destroyed and the old resources will be freed.
+Although this version is more expressive, the previous version is more deterministic in terms of when the memory held by `this` pointer gets released, due to the explicit delete on it. In this version, we exchange the ownership of memory between `w` and `this` and we're not sure when `w` gets destroyed and the old resources will be freed.
 
 **Note:** It's a better practice and often desirable to create classes where its members can be moved automatically using default move functions compiler generates. This is an extension of a similar approach for copy functions. 
 
@@ -413,22 +411,28 @@ std::vector<int> GetVector(int len)
 }
 ```
 
-It's easy to guess that it works because the STL container classes have been updated to support move semantics. 
+By now, it should be easy to guess that it works because the STL container classes have been updated to support move semantics.
 
 ### Passing parameters to function
-Again, with move semantics we can avoid the extra copy of the object when passing temporaries. 
+Again, with move semantics, we can avoid the extra copy of the object when passing temporaries. 
 
 ```cpp
 std::vector<std::string> msg;
 msg.push_back(std::string("Hello World")); //string is a rvalue
 ```
-This is in line with **cpp code guideline F.15:** *"Prefer simple and conventional ways of passing information.*
 
-Below is a cheat sheet that one can follow while designing their APIs.
+These changes don't imply that one should start scrutinizing the legacy code all over and change function signatures and calling statements. Below is a cheat sheet that one can follow while designing their APIs and decide upon the changes needed.
 
 ![Copy]({{ site.baseurl }}/assets/images/MoveSemantics3.png)
 
-I hope this post provided a basic understanding of move semantics and lvalue and rvalue. 
+I hope this post provided a basic understanding of move semantics and lvalue and rvalue. In summary, we learned that.
+
+* Before C++11, containers employed value semantics, which caused unnecessary and expensive copy operation.
+* C++11 introduces move semantics and rvalue references to distinguish between lvalues and rvalues.
+* lvalues are named identifiers having an accessible address.
+* rvalues are temporary objects and their address can't be accessed.
+* Move constructor and move assignment operator definition guidelines.
+* How to pass parameters to and from functions.
 
 
 [1]: [https://eli.thegreenplace.net/2011/12/15/understanding-lvalues-and-rvalues-in-c-and-c/]
