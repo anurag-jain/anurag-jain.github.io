@@ -232,7 +232,7 @@ private:
 }
 ```
 
-Here we can not rely on the default behavior of move functions and thus have to implement them ourselves for **move** to work correctly. It's always a good idea to follow the guidelines to have a correct implementation.
+Here we can not rely on the default move functions and thus have to implement them ourselves for **move** to work correctly. It's always a good idea to follow the guidelines to have a correct implementation.
 
 #### Move Constructor
 A well-implemented move constructor should
@@ -341,9 +341,9 @@ Window& operator=  (Window&& w) noexcept
 ```
 Although this version is more expressive, the previous version is more deterministic in terms of when the memory held by `this` pointer gets released, due to the explicit delete on it. In this version, we exchange the ownership of memory between `w` and `this` and we're not sure when `w` gets destroyed and the old resources will be freed.
 
-**Note:** It's a better practice and often desirable to create classes where its members can be moved automatically using default move functions compiler generates. This is an extension of a similar approach for copy functions. 
+**Note:** It's a better practice and often desirable to create classes where its members can be moved automatically using default move functions compiler generates. This is an extension of a similar approach about having classes which can work correctly with default copy functions. 
 
-When does the compiler generate default implementations of these functions?
+So, when does the compiler generate default implementations of these functions?
 
 * The default move operations are generated if no copy operation or destructor is user-defined.
 * Default copy operations are generated if no move operation is user-defined.
@@ -353,7 +353,7 @@ Note: `=default` and `=delete` is treated as use-defined.
 
 ## Design changes
 
-Now that we're comfortable about the technical details of move semantics, we can look into design impacts it can have. It's mainly focussed on how we pass information to and from functions. Let's look at them one by one.
+Now that we're comfortable about the technical details of move semantics, we can look into design impacts it can have. It mainly concerns how we pass information to and from functions. Let's look at them one by one.
 
 ### Returning from functions
 
@@ -432,7 +432,7 @@ I hope this post provided a basic understanding of move semantics and lvalue and
 * lvalues are named identifiers having an accessible address.
 * rvalues are temporary objects and their address can't be accessed.
 * Move constructor and move assignment operator canonical definition and guidelines for custom definition.
-* Conventions to pass parameters to and from functions.
+* Conventions to pass parameters to and from functions are simplified.
 
 
 [1]: [https://eli.thegreenplace.net/2011/12/15/understanding-lvalues-and-rvalues-in-c-and-c/]
