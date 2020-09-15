@@ -1,0 +1,836 @@
+---
+layout: default
+current: compilehealth
+class: compilehealth-template
+disqus: false
+header_extra: project-compilehealth.html
+hide_footer: true
+---
+
+<!-- < default -->
+<!-- The tag above means: insert everything in this file
+into the {body} of the default.hbs template -->
+
+<!-- The big featured header, it uses blog cover image as a BG if available -->
+<header class="site-header outer">
+    <div class="inner">
+        {% include site-nav.html %}
+    </div>
+</header>
+
+<!-- Everything inside the #post tags pulls data from the post -->
+<!-- #post -->
+
+<style>
+    span.code {
+        font-family: Fira Code, monospace;
+    }
+
+    span.cpp-header {
+        font-weight: 500;
+        color: #30414e;
+    }
+
+    .tabulator-row:hover .cpp-header {
+        color: #0083fd;
+    }
+
+    .tabulator-row.tabulator-group {
+        min-height: 0 !important;
+        background: none;
+        border-top: none !important;
+        border-bottom: 1px solid #999 !important;
+    }
+
+    .tabulator-row .tabulator-cell {
+        padding: 5px !important;
+    }
+
+    .tabulator-header {
+        border-bottom: none !important;
+    }
+
+    .tabulator-col {
+        border-bottom: 1px solid #999 !important;
+    }
+
+    .tabulator-row {
+        min-height: 20px !important;
+        border-right: none !important;
+    }
+
+    .tabulator-group a {
+        color: unset;
+    }
+
+    .tabulator-row.tabulator-row-odd {
+        background: #fcfcfc;
+    }
+
+    .unit-suffix {
+        color: #888;
+    }
+
+    .result-nr {
+        color: rgb(33, 57, 77);
+    }
+
+    div.tabulator-header-filter {
+        position: absolute !important;
+        top: 8px;
+        left: 140px;
+        right: 30px;
+        width: auto !important;
+    }
+
+    .content {
+        padding-left: 16px;
+    }
+
+    .content h2 {
+        margin-top: 16px;
+    }
+
+    .content li {
+        margin-top: 1px;
+        margin-bottom: 1px;
+    }
+
+    div.ui-tooltip.cell-tooltip {
+        max-width: 800px !important;
+    }
+
+    span.digitsep {
+        padding-left: 2px;
+    }
+
+    div.ui-tooltip {
+        z-index: 1111;
+    }
+
+    #compile-table {
+        width: 100vw;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .table-tree-expand,
+    .table-tree-collapse {
+        margin-right: 8px;
+    }
+
+    .table-tree-expand {
+        opacity: 0.2;
+    }
+
+    .tabulator-row:hover .table-tree-expand {
+        opacity: 1;
+    }
+
+    .impact-bar-container {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        margin: 8px;
+        border-radius: 3px;
+        background-color: #eee;
+        overflow: hidden;
+    }
+
+    .impact-bar {
+        height: 100%;
+        min-width: 6px;
+        position: relative;
+        border-radius: 2px;
+    }
+
+    .tabulator-group-toggle {
+        margin-left: 0 !important;
+    }
+
+    /* The switch - the box around the slider */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+
+    /* Hide default HTML checkbox */
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    /* The slider */
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        -webkit-transition: .4s;
+        transition: .4s;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        -webkit-transition: .4s;
+        transition: .4s;
+    }
+
+    input:checked+.slider {
+        background-color: #2196F3;
+    }
+
+    input:focus+.slider {
+        box-shadow: 0 0 1px #2196F3;
+    }
+
+    input:checked+.slider:before {
+        -webkit-transform: translateX(26px);
+        -ms-transform: translateX(26px);
+        transform: translateX(26px);
+    }
+
+    /* Rounded sliders */
+    .slider.round {
+        border-radius: 34px;
+    }
+
+    .slider.round:before {
+        border-radius: 50%;
+    }
+</style>
+
+<main id="site-main" class="site-main outer" role="main" style="flex-grow: unset;">
+    <div class="inner">
+
+        <div class="content">
+            {{ content }}
+
+            <div style="margin-top: -14px;">
+                Upload custom compile-health-data.json:
+                <input type="file" id="files" name="files[]" />
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<div id="compile-table"></div>
+
+<div id="impact-tooltip" style="display: none;">
+    This score estimates the impact of the file on a build.
+    It is a combination of the compile time and the resulting binary size
+    (see blog post for details).
+</div>
+
+<div id="timing-tooltip" style="display: none;">
+    The increase of compile time when adding <span class="code cpp-header">#include &lt;file&gt;</span> to an
+    otherwise
+    empty file.
+    Hover over individual entries for details.
+</div>
+
+<div id="lines-tooltip" style="display: none;">
+    Lines of code of the file and its transitive dependencies.
+    This is after preprocessing, without comments, and only lines with at least one alphanumerical character are
+    counted.
+    Hover over individual entries for details.
+</div>
+
+<div id="binary-tooltip" style="display: none;">
+    The increase in binary object size when adding <span class="code cpp-header">#include &lt;file&gt;</span> to
+    an
+    otherwise empty file.
+    This includes all exported symbols, external symbols, data symbols, and debug information (if applicable).
+    Hover over individual entries for details.
+</div>
+
+<script>
+
+    function get_compile_time_full_ms(r) { return r[1]; }
+    function get_compile_time_base_ms(r) { return r[2]; }
+    function get_preproc_time_full_ms(r) { return r[3]; }
+    function get_preproc_time_base_ms(r) { return r[4]; }
+    function get_line_count(r) { return r[5]; }
+    function get_line_count_raw(r) { return r[6]; }
+    function get_object_size_full(r) { return r[7]; }
+    function get_object_size_base(r) { return r[8]; }
+    function get_text_size(r) { return r[9]; }
+    function get_data_size(r) { return r[10]; }
+    function get_bss_size(r) { return r[11]; }
+    function get_string_size(r) { return r[12]; }
+    function get_code_symbol_size(r) { return r[13]; }
+    function get_data_symbol_size(r) { return r[14]; }
+    function get_weak_symbol_size(r) { return r[15]; }
+    function get_symbol_name_size(r) { return r[16]; }
+    function get_string_count(r) { return r[17]; }
+    function get_undefined_symbol_count(r) { return r[18]; }
+    function get_data_symbol_count(r) { return r[19]; }
+    function get_code_symbol_count(r) { return r[20]; }
+    function get_weak_symbol_count(r) { return r[21]; }
+
+    function get_compile_time_ms(r) { return Math.max(0, get_compile_time_full_ms(r) - get_compile_time_base_ms(r)); }
+    function get_preproc_time_ms(r) { return Math.max(0, get_preproc_time_full_ms(r) - get_preproc_time_base_ms(r)); }
+    function get_object_size(r) { return Math.max(0, get_object_size_full(r) - get_object_size_base(r)); }
+
+    function round1(v) {
+        if (Math.round(v) >= 100)
+            return "" + Math.round(v)
+        if (Math.round(v * 10) / 10 == 0)
+            return "0"
+        return (Math.round(v * 10) / 10).toFixed(1)
+    }
+
+    function formatNr(n) {
+        var parts = ("" + n).split('.')
+        var p = parts[0];
+        var l = p.length;
+        // var sep = "'";
+        var sep = "<span class='digitsep'></span>";
+        if (l > 6)
+            p = p.substring(0, l - 6) + sep + p.substring(l - 6, l - 3) + sep + p.substring(l - 3);
+        else if (l > 3)
+            p = p.substring(0, l - 3) + sep + p.substring(l - 3);
+        parts[0] = p;
+        return parts.join('.')
+    }
+
+    function rangeR(d, div, suffix, vs) {
+        var v0 = vs[0];
+        var v1 = vs[1];
+        var prefix = "<span class='result-nr'>";
+        if (suffix !== "")
+            suffix = " <span class='unit-suffix'>" + suffix + "</span>";
+
+        var only_first = v1 === undefined
+        v0 /= div;
+        v1 /= div;
+        if (d == 0) {
+            v0 = Math.round(v0)
+            v1 = Math.round(v1)
+        }
+        else if (d == 1) {
+            v0 = round1(v0)
+            v1 = round1(v1)
+        }
+        if (only_first || v0 == v1)
+            return prefix + formatNr(v0) + suffix;
+        return prefix + formatNr(v0) + " .. " + formatNr(v1) + "</span>" + suffix;
+    }
+
+    function formatTime(vs) {
+        return rangeR(0, 1, "ms", vs);
+    }
+    function formatLoC(vs) {
+        return rangeR(1, 1000, "kLoC", vs);
+    }
+    function formatBin(vs) {
+        return rangeR(1, 1024, "kB", vs);
+    }
+
+    function computeImpactTime(r) {
+        var t = get_compile_time_ms(r);
+        return Math.round(100 * (1 - 200 / (200 + t)));
+    }
+    function computeImpactBin(r) {
+        var b = get_object_size(r); // in B
+        return Math.round(100 * (1 - 5 * 1024 * 1024 / (5 * 1024 * 1024 + b)));
+    }
+    function computeImpact(r) {
+        return Math.min(100, computeImpactBin(r) + computeImpactTime(r));
+    }
+
+    function lerpColor(a, b, t) {
+        var r = a[0] * (1 - t) + b[0] * t;
+        var g = a[1] * (1 - t) + b[1] * t;
+        var b = a[2] * (1 - t) + b[2] * t;
+        return "rgb(" + 255 * r + "," + 255 * g + "," + 255 * b + ")";
+    }
+
+    function getRange(e, attr) { // attr is fun on elements
+        if (e._children) {
+            var min = attr(e._children[0]);
+            var max = min;
+
+            e._children.forEach(function (c) {
+                var v = attr(c);
+                if (v < min) min = v;
+                if (v > max) max = v;
+            });
+            return [min, max];
+        }
+        else {
+            var v = attr(e);
+            return [v, v];
+        }
+    }
+    function getRangeRes(e, attr) { // attr is fun on results
+        if (e._children) {
+            var min = attr(e._children[0].result);
+            var max = min;
+
+            e._children.forEach(function (c) {
+                var v = attr(c.result);
+                if (v < min) min = v;
+                if (v > max) max = v;
+            });
+            return [min, max];
+        }
+        else {
+            var v = attr(e.result);
+            return [v, v];
+        }
+    }
+
+    function makeImpactBar(c) {
+        var d = c.getData();
+        var v = d.impact;
+        v = (v < 0 ? 0 : v > 100 ? 100 : v) / 100;
+        var color;
+        if (v < .5)
+            color = lerpColor([0, .7, 0], [1, .7, 0], v / .5);
+        else
+            color = lerpColor([1, .7, 0], [1, 0, 0], (v - .5) / .5);
+
+        var minw = 0.1;
+
+        var left = v;
+        var width = 0;
+        if (d._children) {
+            var vmin = d.impacts[0];
+            vmin = (vmin < 0 ? 0 : vmin > 100 ? 100 : vmin) / 100;
+            left = vmin;
+            width = v - vmin;
+        }
+
+        if (width < minw) {
+            var ex = minw - width;
+            width = minw;
+            left -= ex / 2;
+        }
+        if (left < 0) left = 0;
+        if (left + width > 1) left = 1 - width;
+
+        // return "<div class='impact-bar' style='border-color:" + color + "; background-color:" + color + "; width:" + v * 100 + "%;'></div>";
+        return "<div class='impact-bar-container'><div class='impact-bar' style='border-color:" + color + "; background-color:" + color + "; left:" + left * 100 + "%; width:" + width * 100 + "%;'></div></div>";
+    }
+
+    function makeTTable(vals) {
+        var tt = "<table>";
+        var i;
+        for (i = 0; i < vals.length; ++i) {
+            tt += "<tr>";
+            tt += "<td style='text-align:right;'>"
+            tt += vals[i][0];
+            tt += "</td>";
+            tt += "<td>&nbsp;<span class='unit-suffix'>";
+            tt += vals[i][1];
+            tt += "</span></td>";
+            tt += "</tr>";
+        }
+        tt += "</table>";
+        return tt
+    }
+
+    function buildFileTooltip(e) {
+        var v = e.variant;
+        var vals = [
+            ["Build Type", v.name],
+            ["C++ Version", "C++" + v.cpp],
+            ["Compiler", v.compiler_name],
+            [" .. Path", v.compiler_path],
+            [" .. Version", v.compiler_version],
+            [" .. Args", v.args],
+            // ["&gt; Compile", e.compile_cmd],
+            // ["&gt; Preprocess", e.preproc_cmd],
+        ];
+        var tt = "<table>";
+        var i;
+        // for (i = 0; i < vals.length; ++i) {
+        //     if (i > 0) tt += "<br />";
+        //     tt += vals[i][0] + ": " + vals[i][1];
+        // }
+        for (i = 0; i < vals.length; ++i) {
+            tt += "<tr>";
+            tt += "<td>" + vals[i][0].replace(" ", "&nbsp;") + "&nbsp;</td>";
+            tt += "<td><span class='code'>" + vals[i][1] + "</span></td>";
+            tt += "</tr>";
+        }
+        return tt;
+    }
+
+    function buildTimeTooltip(e) {
+        return makeTTable([
+            [rangeR(0, 1, "", getRangeRes(e, get_compile_time_ms)), "ms compile time (increase)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_compile_time_full_ms)), "ms compile time (total)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_compile_time_base_ms)), "ms compile time (baseline)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_preproc_time_ms)), "ms preprocessing time (increase)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_preproc_time_full_ms)), "ms preprocessing time (total)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_preproc_time_base_ms)), "ms preprocessing time (baseline)"],
+        ]);
+    }
+
+    function buildImpactTooltip(e) {
+        return makeTTable([
+            [rangeR(0, 1, "", getRangeRes(e, computeImpact)), "impact score"],
+            [rangeR(0, 1, "", getRangeRes(e, computeImpactTime)), "impact score (from timing)"],
+            [rangeR(0, 1, "", getRangeRes(e, computeImpactBin)), "impact score (from binary)"],
+        ]);
+    }
+
+    function buildLineTooltip(e) {
+        return makeTTable([
+            [rangeR(0, 1, "", getRangeRes(e, get_line_count)), "LoC stripped"],
+            [rangeR(0, 1, "", getRangeRes(e, get_line_count_raw)), "LoC raw"],
+        ]);
+    }
+
+    function buildBinaryTooltip(e) {
+        return makeTTable([
+            [rangeR(0, 1, "", getRangeRes(e, get_object_size)), "B obj size (increase)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_object_size_full)), "B obj size (total)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_object_size_base)), "B obj size (base)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_text_size)), "B .text"],
+            [rangeR(0, 1, "", getRangeRes(e, get_data_size)), "B .data"],
+            [rangeR(0, 1, "", getRangeRes(e, get_bss_size)), "B .bss"],
+            [rangeR(0, 1, "", getRangeRes(e, get_string_size)), "B strings"],
+            [rangeR(0, 1, "", getRangeRes(e, get_code_symbol_size)), "B code symbol size"],
+            [rangeR(0, 1, "", getRangeRes(e, get_data_symbol_size)), "B data symbol size"],
+            [rangeR(0, 1, "", getRangeRes(e, get_weak_symbol_size)), "B weak symbol size"],
+            [rangeR(0, 1, "", getRangeRes(e, get_symbol_name_size)), "B symbol names"],
+            [rangeR(0, 1, "", getRangeRes(e, get_string_count)), "strings"],
+            [rangeR(0, 1, "", getRangeRes(e, get_undefined_symbol_count)), "undefined symbol(s)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_code_symbol_count)), "code symbol(s)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_data_symbol_count)), "data symbol(s)"],
+            [rangeR(0, 1, "", getRangeRes(e, get_weak_symbol_count)), "weak symbol(s)"],
+        ]);
+    }
+
+    function createTable(table, table_data) {
+        var projects = table_data.projects
+        var variants = table_data.variants
+
+        // post-process data a bit
+        var data = [];
+        var idx = 0;
+
+        projects.forEach(function (p, pidx) {
+            p.files.forEach(function (f) {
+                function sharedSetup(e) {
+                    e.id = idx;
+                    e.cat = p.category;
+                    e.proj = p.name;
+                    e.project_idx = pidx;
+                    e.version = p.version;
+                    e.file = f;
+                    e.project = p;
+                }
+
+                fe = {};
+                sharedSetup(fe);
+                fe._children = [];
+
+                f.results.forEach(function (r) {
+                    e = {};
+                    sharedSetup(e);
+                    e.result = r;
+                    e.variant = variants[r[0]];
+                    e.impact = computeImpact(r);
+                    e.timing = get_compile_time_ms(r);
+                    e.lines = get_line_count(r);
+                    e.binsize = get_object_size(r);
+
+                    fe._children.push(e);
+                    idx++;
+                })
+
+                fe.impacts = getRange(fe, function (c) { return c.impact; });
+                fe.impact = fe.impacts[1];
+                fe.timing = getRangeRes(fe, get_compile_time_ms)[1];
+                fe.lines = getRangeRes(fe, get_line_count)[1];
+                fe.binsize = getRangeRes(fe, get_object_size)[1];
+
+                data.push(fe);
+                idx++;
+            })
+        });
+
+        table.setData(data);
+    }
+
+    $(function () {
+
+        // TODO:
+        // - more entries / libs
+        // - two-level nodes for multi-version libs?
+        // - proper merge of multiple data files (add your own json!)
+        // - filter by c++ version (and update ranges)
+        // - option: do not count debug information in impact
+        // - changelog in html
+
+        // changelog:
+        // - added fmt
+
+        var headerAlignRight = function (cell, formatterParams, onRendered) {
+            cell.getElement().style.textAlign = 'right';
+            return '' + cell.getValue()
+        }
+
+        var make_sorter = function (name) {
+            return function (a, b, aRow, bRow, column, dir, sorterParams) {
+                var da = aRow.getData();
+                var db = bRow.getData();
+                if (da.project_idx != db.project_idx)
+                    return dir == "asc" ? da.project_idx - db.project_idx : db.project_idx - da.project_idx
+                else
+                    return da[name] - db[name]
+            };
+        }
+        var make_str_sorter = function (attr) {
+            return function (a, b, aRow, bRow, column, dir, sorterParams) {
+                var da = aRow.getData();
+                var db = bRow.getData();
+                if (da.project_idx != db.project_idx)
+                    return dir == "asc" ? da.project_idx - db.project_idx : db.project_idx - da.project_idx
+                else {
+                    var sa = attr(da);
+                    var sb = attr(db);
+                    return sa < sb ? -1 : sa > sb ? 1 : 0;
+                }
+            };
+        }
+
+        var file_filter = function (headerValue, rowValue, rowData, filterParams) {
+            if (headerValue === "")
+                return true;
+            return rowData.file.name.toLowerCase().includes(headerValue.toLowerCase())
+        }
+
+        // see http://tabulator.info/docs/4.6/quickstart
+        var table = new Tabulator("#compile-table", {
+            height: "1000",
+            layout: "fitColumns",
+            groupBy: ["cat", "proj"],
+            dataTree: true,
+            columns: [
+                {
+                    title: "Header / Source",
+                    field: "file",
+                    formatter: function (c) {
+                        var d = c.getData();
+                        var f = d.file;
+                        if (d._children) {
+                            var txt = "<span class='code cpp-header'>" + f.name
+                                .replace(/</g, "&lt;")
+                                .replace(/>/g, "&gt;") + "</span>";
+                            if (f.url)
+                                txt = "<a href='" + f.url + "' class='cpp-header-a' target='_blank'>" + txt + "</a>";
+                            return txt;
+                        }
+                        else
+                            return " <span class='code'>" + d.variant.compiler_path + " " + d.variant.args + "</span>";
+                    },
+                    sorter: make_str_sorter(function (d) { return d.file.name; }),
+                    headerFilter: true,
+                    headerFilterFunc: file_filter,
+                    minWidth: 300,
+                    cellMouseOver: function (e, cell) {
+                        if (!cell.getData()._children)
+                            $(cell.getElement()).tooltip({
+                                show: 0,
+                                hide: 0,
+                                content: buildFileTooltip(cell.getData()),
+                                tooltipClass: "cell-tooltip",
+                                position: { my: "left bottom-12", at: "left+24 top", collision: "flipfit" },
+                            });
+                    },
+                },
+                {
+                    title: "Version",
+                    field: "version",
+                    width: 100,
+                    sorter: make_str_sorter(function (d) { return d.version; }),
+                },
+                {
+                    title: '<span header-tooltip="impact-tooltip">Impact <i class="fas fa-info-circle"></i></span>',
+                    field: "impact",
+                    width: 120,
+                    formatter: makeImpactBar,
+                    sorter: make_sorter("impact"),
+                    cellMouseOver: function (e, cell) {
+                        $(cell.getElement()).tooltip({
+                            show: 0,
+                            hide: 0,
+                            content: buildImpactTooltip(cell.getData()),
+                            tooltipClass: "cell-tooltip",
+                            position: { my: "center bottom-12", at: "center top", collision: "flipfit" },
+                        });
+                    },
+                },
+                {
+                    title: '<span header-tooltip="timing-tooltip">Timing <i class="fas fa-info-circle"></i></span>',
+                    field: "timing",
+                    width: 140,
+                    titleFormatter: "html",
+                    formatter: function (c) {
+                        return formatTime(getRangeRes(c.getData(), get_compile_time_ms));
+                    },
+                    hozAlign: "right",
+                    titleFormatter: headerAlignRight,
+                    sorter: make_sorter("timing"),
+                    cellMouseOver: function (e, cell) {
+                        $(cell.getElement()).tooltip({
+                            show: 0,
+                            hide: 0,
+                            content: buildTimeTooltip(cell.getData()),
+                            tooltipClass: "cell-tooltip",
+                            position: { my: "center bottom-12", at: "center top", collision: "flipfit" },
+                        });
+                    },
+                },
+                {
+                    title: '<span header-tooltip="lines-tooltip">Lines <i class="fas fa-info-circle"></i></span>',
+                    field: "lines",
+                    width: 160,
+                    formatter: function (c) {
+                        return formatLoC(getRangeRes(c.getData(), get_line_count));
+                    },
+                    hozAlign: "right",
+                    titleFormatter: headerAlignRight,
+                    sorter: make_sorter("lines"),
+                    cellMouseOver: function (e, cell) {
+                        $(cell.getElement()).tooltip({
+                            show: 0,
+                            hide: 0,
+                            content: buildLineTooltip(cell.getData()),
+                            tooltipClass: "cell-tooltip",
+                            position: { my: "center bottom-12", at: "center top", collision: "flipfit" },
+                        });
+                    },
+                },
+                {
+                    title: '<span header-tooltip="binary-tooltip">Binary <i class="fas fa-info-circle"></i></span>',
+                    field: "binsize",
+                    width: 140,
+                    formatter: function (c) {
+                        return formatBin(getRangeRes(c.getData(), get_object_size));
+                    },
+                    hozAlign: "right",
+                    titleFormatter: headerAlignRight,
+                    sorter: make_sorter("binsize"),
+                    cellMouseOver: function (e, cell) {
+                        $(cell.getElement()).tooltip({
+                            show: 0,
+                            hide: 0,
+                            content: buildBinaryTooltip(cell.getData()),
+                            tooltipClass: "cell-tooltip",
+                            position: { my: "right bottom-12", at: "right top", collision: "flipfit" },
+                        });
+                    },
+                },
+            ],
+            groupHeader: [
+                function (value, count, data, group) {
+                    var l = group.getSubGroups().length;
+                    return value + "<span style='color:#777; margin-left:10px;'>(" + l + " librar" + (l == 1 ? "y" : "ies") + ")</span>";
+                },
+                function (value, count, data, group) {
+                    var f = count;
+                    return value + "<span style='color:#777; margin-left:10px;'>(" + f + " file" + (f == 1 ? "" : "s") + ", <a href='" + data[0].project.url + "' target='_blank'>" + data[0].project.url + "</a>)</span>";
+                }
+            ],
+            groupStartOpen: [
+                function (value, count, data, group) {
+                    return value == "Standard Library";
+                },
+                function (value, count, data, group) {
+                    return value == "C++ Standard Library";
+                }
+            ],
+            rowClick: function (e, row) {
+                row.treeToggle();
+                $("div.ui-tooltip").remove();
+                $("div.ui-helper-hidden-accessible").remove();
+            },
+            groupToggleElement: "header",
+            placeholder: "Loading Compile Health Data ...",
+            resizableColumns: false,
+            tableBuilt: function () {
+                $(document).tooltip({
+                    items: "[header-tooltip]",
+                    content: function () {
+                        var e = $(this);
+                        if (e.is("[header-tooltip]"))
+                            return document.getElementById(e.attr("header-tooltip")).innerHTML;
+                    },
+                    show: 0,
+                    hide: 0,
+                });
+            },
+            dataTreeCollapseElement: "<i class='far fa-minus-square table-tree-collapse'></i>",
+            dataTreeExpandElement: "<i class='far fa-plus-square table-tree-expand'></i>",
+        });
+
+        $.getJSON("{{ site.baseurl_fix }}assets/compile-health/compile-health-data.json", function (data) {
+            createTable(table, data);
+        });
+
+        function adaptSize() {
+            var wh = $(window).height();
+            var y = $("#compile-table").offset().top
+            var th = wh - y - 1;
+            if (th < 0.8 * wh || wh < 1000)
+                th = Math.round(wh);
+            table.setHeight(th);
+        }
+
+        $(window).resize(adaptSize);
+        adaptSize();
+
+        function handleFileSelect(evt) {
+            var files = evt.target.files; // FileList object
+
+            // files is a FileList of File objects. List some properties.
+            for (var i = 0, f; f = files[i]; i++) {
+                if (f.type != "application/json") {
+                    alert("Only JSON files supported");
+                    break;
+                }
+
+                table.clearData();
+                console.log("reading file " + f.name + " (type " + f.type + ", size " + f.size + ")");
+                var reader = new FileReader();
+                reader.onload = (function (theFile) {
+                    return function (e) {
+                        createTable(table, JSON.parse(e.target.result));
+                        console.log("recreated table");
+                        document.getElementById("files").value = "";
+                    };
+                })(f);
+                reader.readAsText(f);
+
+                break;
+            }
+        }
+        document.getElementById("files").addEventListener("change", handleFileSelect, false);
+    });
+</script>
+
+<!-- /post -->
+
+<!-- The #contentFor helper here will send everything inside it up to the matching #block helper found in default.hbs -->
+{% include page-scripts.html %}

@@ -1,0 +1,21 @@
+anurag:
+  username: anurag
+  name: Anurag Jain
+  url_full: https://anurag-jain.github.io
+  url: anurag-jain.github.io
+  bio: Professional Geek
+  picture: assets/images/ghost.png
+  #facebook: philip.trettner
+  #twitter: PhilipTrettner
+  cover: False
+martin:
+  username: martin
+  name: Martin Luther King
+  location: Memphis, Tennessee
+  url_full: False
+  url: False
+  bio: An American pastor, activist, humanitarian. People know me for leading the African-American Civil Rights movement using nonviolent civil disobedience.
+  picture: assets/images/martin.jpg
+  facebook: False
+  twitter: False
+  cover: False

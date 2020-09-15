@@ -1,0 +1,11 @@
+meta:
+  name: meta
+  description: False
+  cover: False
+cpp:
+  name: c++
+  description: False
+  cover: assets/images/tag_cover_cpp.jpg
+Algorithms:
+  name: Algorithms
+  
