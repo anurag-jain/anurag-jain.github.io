@@ -1,6 +1,6 @@
 ## Blog
 
-This is the source of my personal blog (https://artificial-mind.net).
+This is the source of my personal blog (https://anurag-jain.github.com).
 
 
 ## Copyright & License
